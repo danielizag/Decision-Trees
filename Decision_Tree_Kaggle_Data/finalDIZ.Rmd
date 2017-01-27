@@ -1,0 +1,216 @@
+---
+title: "Intelligent Systems Final Project"
+author: "Daniel Izaguirre"
+date: "November 30, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Final Project - Decision Trees and Machine Learning in R
+
+What factors are the best predictors for different salaries. Where salaries can be defined by 'high', 'medium', 'low'.
+
+```{r include=FALSE, echo=FALSE}
+library("ggplot2")
+library("dplyr")
+library("randomForest")
+library("rattle")
+library("caret")
+library("rpart.plot")
+```
+
+## The Dataset
+
+Cleaning the dataset.
+
+```{r}
+hr <- read.csv("HR_comma_sep.csv")
+hr$left <- NULL
+hr$type <- hr$sales
+hr$sales <- NULL
+
+View(head(hr))
+length <- nrow(hr)
+```
+
+The total tize of the dataset if `r length` observations.
+
+## Decision Tree on the data (original)
+
+### Partitioning
+
+Partition the dataset to into training data and test data.
+
+* Rule in training data: your training data and test data cannot have any common observations.
+
+```{r}
+set.seed(3792)
+inTraining <- createDataPartition(y=hr$salary, p=0.6, list=FALSE)
+trainingData <- hr[inTraining,]
+testData <- hr[-inTraining,]
+```
+
+Now that the data is processed into training and test data. The Decision Tree model can be created. 
+
+```{r}
+hrModel <- train(salary~., data=trainingData, method="rpart")
+hrModel
+```
+### The Decision Tree
+
+```{r fig.width=6, fig.height=6}
+fancyRpartPlot(hrModel$finalModel, main="Employee Salary Decision Tree", sub="Daniel Izaguirre")
+```
+
+### Evaluation
+
+Now, the model can be evaluated with the training and test data that has been partition from the original set.
+
+#### In-Sample
+
+```{r}
+trainPrediction <- predict(hrModel, trainingData)
+acc_table <- confusionMatrix(trainPrediction, trainingData$salary)$table
+acc_table
+overall <- confusionMatrix(trainPrediction, trainingData$salary)$overall[1]
+overall <- round(overall*100, 1)
+```
+The overall accuracy of the model is `r overall`%, when tested against the training data.
+
+#### Out-of-Sample
+
+```{r}
+testPrediction <- predict(hrModel, testData)
+acc_table <- confusionMatrix(testPrediction,testData$salary)$table.
+acc_table
+overall <- confusionMatrix(testPrediction,testData$salary)$overall[1]
+overall <- round(overall*100, 1)
+```
+The overall accuracy of the model is `r overall`%, when tested against the testing data.
+
+## Decision Tree on the data (reclassified)
+
+The data which was provided only provided a moderate amount of accuracy. This can be improved by generalizing the data in the dataset more.
+
+I have chosen to focus on the factors which produce a high salary. This has been done by reclassifying the salary variable into 'high' and 'average and low'.
+
+```{r}
+hr <- read.csv("HR_comma_sep.csv")
+salary_classifier <- function(n){
+    if (n == 'high')
+      return("high")
+    else if(n == 'medium' || n == 'low')
+      return("average and low")
+  }
+hr$salary <- sapply(hr$salary, salary_classifier)
+hr$left <- NULL
+hr$type <- hr$sales
+hr$sales <- NULL
+View(head(hr))
+```
+
+### Partitioning
+
+```{r}
+set.seed(3792)
+inTraining <- createDataPartition(y=hr$salary, p=0.6, list=FALSE)
+trainingData <- hr[inTraining,]
+testData <- hr[-inTraining,]
+
+hrModel <- train(salary~., data=trainingData, method="rpart")
+hrModel
+```
+
+### The Decision Tree
+
+```{r fig.width=6, fig.height=6}
+fancyRpartPlot(hrModel$finalModel, main="Employee Salary Decision Tree", sub="Daniel Izaguirre")
+```
+
+### Evaluation
+
+Now, the model can be evaluated with the training and test data that has been partition from the reclassified set.
+
+##### In-sample
+
+```{r}
+trainPrediction <- predict(hrModel, trainingData)
+acc_table <- confusionMatrix(trainPrediction, trainingData$salary)$table
+acc_table
+overall <- confusionMatrix(trainPrediction, trainingData$salary)$overall[1]
+overall <- round(overall*100, 1)
+```
+The overall accuracy of the model is `r overall`%, when tested against the training data.
+
+##### Out-of-Sample
+
+```{r}
+testPrediction <- predict(hrModel, testData)
+acc_table <- confusionMatrix(testPrediction,testData$salary)$table
+acc_table
+overall <- confusionMatrix(testPrediction,testData$salary)$overall[1]
+overall <- round(overall*100, 1)
+```
+The overall accuracy of the model is `r overall`%, when tested against the testing data.
+
+## Machine Learning - Random Forest Algorithm (original dataset)
+
+The Random Forest algorithm is a machine learning algorithm which can be used to provide a higher accuracy. However it is slow, is resource intensive on your machine, can be difficult to understand (random draws add complexity), and could overfit. Despite the cons, this algorithm is very strong.
+
+```{r}
+hr <- read.csv("HR_comma_sep.csv")
+hr$left <- NULL
+hr$type <- hr$sales
+hr$sales <- NULL
+```
+
+### Partitioning
+
+With this model, 80% of the data is desired for training and 20% for testing. However this would take a long time, so I am only using 20% for training and 80% for testing. 
+
+```{r}
+hr <- read.csv("HR_comma_sep.csv")
+salary_classifier <- function(n){
+    if (n == 'high')
+      return("high")
+    else if(n == 'medium' || n == 'low')
+      return("average and low")
+  }
+hr$salary <- sapply(hr$salary, salary_classifier)
+hr$left <- NULL
+hr$type <- hr$sales
+hr$sales <- NULL
+
+set.seed(3792)
+inTraining <- createDataPartition(y=hr$salary, p=0.4, list=FALSE)
+trainingData <- hr[inTraining,]
+testData <- hr[-inTraining,]
+```
+
+### Random Forest Algorithm
+
+```{r}
+hrModel_rf <- train(salary~., data = trainingData, method = "rf", prox=TRUE)
+hrModel_rf
+```
+
+### Evaluation
+
+#### Out-of-Sample
+```{r}
+hrModel_rf$finalModel
+testPrediction <- predict(hrModel_rf,testData)
+rf_table <- confusionMatrix(testPrediction,testData$salary)$table
+rf_table
+overall <- confusionMatrix(testPrediction,testData$salary)$overall[1]
+overall <- round(overall*100, 1)
+```
+The overall accuracy of the model is `r overall`%, when tested against the testing data.
+
+
+
+
+
